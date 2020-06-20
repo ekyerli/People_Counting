@@ -13,10 +13,9 @@ from mobilenet_ssd.classes import CLASSES
 
 
 def counter(filenameOpen, filenameSave):
-
-    # örnek1-2 için 0.55,30;örnek3 için 0.5,5;örnek4 için 0.45,11;
-    defaultConfidence = 0.72 #minimum algılama yüzdesi
-    defaultSkipFrames = 30 # atlamalar arası atlanan frame
+    # örnek1-2 için 0.55,30;örnek3 için 0.5,5;örnek4 için 0.45,11;örnek5 için 0,55,20;
+    defaultConfidence = 0.55 #minimum algılama yüzdesi
+    defaultSkipFrames = 20 # atlamalar arası atlanan frame
     W = None
     H = None
     writer = None
@@ -28,8 +27,8 @@ def counter(filenameOpen, filenameSave):
     print("Video yükleniyor..")
     vs = cv2.VideoCapture(filenameOpen)
 
-    # nesneleri saklamak için her birine id veriyoruz.
-    ct = CentroidTracker(maxDisappeared=40, maxDistance=50)
+    # nesneleri saklamak için her birine id veriyoruz.örnek 6 için 25,20;
+    ct = CentroidTracker(maxDisappeared=25, maxDistance=20)
     trackers = []
     trackableObjects = {}
 
@@ -135,7 +134,7 @@ def counter(filenameOpen, filenameSave):
         # yukarı mı aşağı mı gittiklerini anlamak için bir çizgi çekiyoruz
         #burayı değiştirirsek 169. satırıda düzeltmemiz gerekli.
         #cv2.line(frame, (0, 0), (W, H), (0, 255, 255), 2)#çapraz
-        cv2.line(frame, (0, H // 2), (W, H // 2), (255, 255, 0), 2)#yatay
+        cv2.line(frame, (0,H // 2), (W, H// 2), (255, 255, 0), 2)#yatay
         #cv2.line(frame, (W//2, 0), (W//2, H), (0, 255, 255), 2)  # dikey
 
         # nesneler ilişkilendiriyoruz.
@@ -159,11 +158,11 @@ def counter(filenameOpen, filenameSave):
 
 
                 if not to.counted:
-                    if direction < 0 and centroid[1] < H // 2:
+                    if direction < 0 and centroid[1] < (H) // 2:
                         totalUp += 1
                         to.counted = True
 
-                    elif direction > 0 and centroid[1] > H // 2:
+                    elif direction > 0 and centroid[1] > (H) // 2:
                         totalDown += 1
                         to.counted = True
 
