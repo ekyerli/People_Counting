@@ -1,44 +1,40 @@
-# import the necessary packages
+#main processing file
+from mobilenet_ssd.classes import CLASSES
 from tracking.centroidtracker import CentroidTracker
 from tracking.trackableobject import TrackableObject
-from imutils.video import VideoStream
 from imutils.video import FPS
 import numpy as np
-import argparse
-import imutils
-import time
 import dlib
 import cv2
-from mobilenet_ssd.classes import CLASSES
+
 
 
 def counter(filenameOpen, filenameSave):
-    # örnek1-2 için 0.55,30;örnek3 için 0.5,5;örnek4 için 0.45,11;örnek5 için 0,55,20;
-    defaultConfidence = 0.55 #minimum algılama yüzdesi
-    defaultSkipFrames = 20 # atlamalar arası atlanan frame
+    # 0.55,30 for örnek1-2  ; 0.5,5 for örnek3 ;0.45,11 for örnek4 ;0,55,20 for örnek5 ;
+    defaultConfidence = 0.55 #threshold value
+    defaultSkipFrames = 20 #skipped frame
     W = None
     H = None
     writer = None
 
-    # yükleme modeli-yapay sinir ağları
+    # loading model-artificial neural networks
     net = cv2.dnn.readNetFromCaffe("mobilenet_ssd/MobileNetSSD_deploy.prototxt",
                                    "mobilenet_ssd/MobileNetSSD_deploy.caffemodel")
 
     print("Video yükleniyor..")
     vs = cv2.VideoCapture(filenameOpen)
 
-    # nesneleri saklamak için her birine id veriyoruz.örnek 6 için 25,20;
-    ct = CentroidTracker(maxDisappeared=25, maxDistance=20)
+    #each id is given to store objects.25,20 for örnek 6; others 40,50 ;
+    ct = CentroidTracker(maxDisappeared=25, maxDistance=20)#boundary lines of objects are determined
     trackers = []
     trackableObjects = {}
 
-    # şimdiye kadar işlenen toplam kare sayısı
-    # yukarı veya aşağı hareket eden toplam nesne sayısı
+    # variables are determined
     totalFrames = 0
     totalDown = 0
     totalUp = 0
 
-    # saniye başına kare çıktısı tahmincisi
+    #fps output estimator per second
     fps = FPS().start()
     stat = {}
 
@@ -46,22 +42,22 @@ def counter(filenameOpen, filenameSave):
         # VideoCapture
         ok, frame = vs.read()
 
-        # videonun sonu gelir ve döngüden çıkarız.
+
         if filenameOpen is not None and frame is None:
             break
 
-        # çerçeveyi maksimum 500 piksel olacak şekilde yeniden boyutlandırdık.
-        # (ne kadar az veriye sahipsek, o kadar hızlı işleme koyabiliriz),
-        # ardından dlib için çerçeveyi BGR'den RGB'ye dönüştürdük.
+        #we resized the frame to a maximum of 500 pixels.
+        #(the less data it has, the faster we can process it),
+        #then convert the frame for dlib from BGR to RGB.
 
         frame = cv2.resize(frame, (640, 480))
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # çerçeve boyutları videoya göre ayarlanıyor.
+        #frame sizes are adjusted according to the video.
         if W is None or H is None:
             (H, W) = frame.shape[:2]
 
-        # dosyayı kaydetmek için
+        #to save the file
         if filenameSave is not None and writer is None:
             fourcc = cv2.VideoWriter_fourcc(*"MJPG")
             writer = cv2.VideoWriter(filenameSave, fourcc, 30, (W, H), True)
@@ -69,14 +65,13 @@ def counter(filenameOpen, filenameSave):
         status = "Bekleniyor"
         rects = []
 
-        # işlemciyi yormamak için örnekleme zamanını ayarladık
-
+        #we set the sampling time to avoid tiring the processor
         videotime = vs.get(cv2.CAP_PROP_POS_MSEC) / 1000
         summ = totalUp + totalDown
 
         if totalFrames % 50 == 0:
             stat["{:.4s}".format(str(videotime))] = str(summ)
-            #giriş çıkış toplam sayıyı yazdırmak için
+            #input to print total number
             #print("{:.4s}".format(str(videotime)) + " people: " + str(summ))
 
         if totalFrames % defaultSkipFrames == 0:
@@ -84,42 +79,37 @@ def counter(filenameOpen, filenameSave):
             status = "Bulundu"
             trackers = []
 
-            # çerçeve boyutlarını bloba dönüştürdüğümüz kısım
+            #the part where we convert the frame dimensions to blob
             blob = cv2.dnn.blobFromImage(frame, 0.007843, (W, H), 127.5)
             net.setInput(blob)
             detections = net.forward()
 
-            # tespit edilen tüm nesneler
+            #all detected objects
             for i in np.arange(0, detections.shape[2]):
                 confidence = detections[0, 0, i, 2]
 
-                # tahmin değeri eşik değerinden büyük mü?
+                #is the forecast value greater than the threshold value?
                 if confidence > defaultConfidence:
                     idx = int(detections[0, 0, i, 1])
 
-                    #insan değilse yoksay
+                    #ignore if not human
                     if CLASSES[idx] != "person":
                         continue
 
-                    # nesneyi çerçeveye alıyoruz.
+                    #frame the object
                     box = detections[0, 0, i, 3:7] * np.array([W, H, W, H])
                     (startX, startY, endX, endY) = box.astype("int")
                     tracker = dlib.correlation_tracker()
                     rect = dlib.rectangle(startX, startY, endX, endY)
                     tracker.start_track(rgb, rect)
-
-                    # listtemize ekliyoruz
                     trackers.append(tracker)
-                    
 
-        # otherwise, we should utilize our object *trackers* rather than
-        # object *detectors* to obtain a higher frame processing throughput
         else:
-            # loop over the trackers
+            #loop over the trackers
             for tracker in trackers:
                 status = "Takip"
 
-                # izleyiciyi güncelleyin ve güncellenmiş konumu yakalayın
+                #update the viewer and capture the updated location
                 tracker.update(rgb)
                 pos = tracker.get_position()
 
@@ -128,34 +118,30 @@ def counter(filenameOpen, filenameSave):
                 endX = int(pos.right())
                 endY = int(pos.bottom())
 
-                # sınırlayıcı kutu koordinatlarını dikdörtgenler listesine ekledik
+                #bounding box coordinates added to list of rectangles
                 rects.append((startX, startY, endX, endY))
 
-        # yukarı mı aşağı mı gittiklerini anlamak için bir çizgi çekiyoruz
-        #burayı değiştirirsek 169. satırıda düzeltmemiz gerekli.
-        #cv2.line(frame, (0, 0), (W, H), (0, 255, 255), 2)#çapraz
-        cv2.line(frame, (0,H // 2), (W, H// 2), (255, 255, 0), 2)#yatay
-        #cv2.line(frame, (W//2, 0), (W//2, H), (0, 255, 255), 2)  # dikey
+        #A line is drawn to see if they go up or down
+        #If it changes here, line 149 needs to be corrected.
+        #cv2.line(frame, (0, 0), (W, H), (0, 255, 255), 2)#cross
+        cv2.line(frame, (0,H // 2), (W, H// 2), (255, 255, 0), 2)#horizontal
+        #cv2.line(frame, (W//2, 0), (W//2, H), (0, 255, 255), 2)  #vertical
 
-        # nesneler ilişkilendiriyoruz.
+        #associating objects.
         objects = ct.update(rects)
 
-        # nesneyi döngüye sokuyoruz
+        #object is looped
         for (objectID, centroid) in objects.items():
-            # geçerli nesne kimliği için izlenebilir bir nesne olup olmadığını kontrol ettik.
             to = trackableObjects.get(objectID, None)
-
-            #yoksa oluşturuyoruz.
             if to is None:
                 to = TrackableObject(objectID, centroid)
 
-            # varsa yön belirlemek için bu fonksiyona giriyoruz.
+            #this function is entered to determine the direction.
             else:
-                # hareket yönüne göre aşağı mı yoksa yukarı mı diye bakıyoruz.
+                #depending on the direction of movement, whether it is up or down
                 y = [c[1] for c in to.centroids]
                 direction = centroid[1] - np.mean(y)
                 to.centroids.append(centroid)
-
 
                 if not to.counted:
                     if direction < 0 and centroid[1] < (H) // 2:
@@ -166,29 +152,27 @@ def counter(filenameOpen, filenameSave):
                         totalDown += 1
                         to.counted = True
 
-            # izlenebilir nesnemize id veriyoruz.
+            #traceable object is given id
             trackableObjects[objectID] = to
 
-            #nesnenin merkezini seçiyoruz ve id sini yazıyoruz.
+            #the center of the object is selected and the id number is written
             text = "ID {}".format(objectID)
             cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
             cv2.circle(frame, (centroid[0], centroid[1]), 4, (0, 255, 255), -1)
 
-        # ekran çıktıları
+        #screen printouts
         info = [
             ("Yukari", totalUp),
             ("Asagi", totalDown),
             ("Sure", "{:.2f}".format(videotime))
         ]
-
-        # loop over the info tuples and draw them on our frame
         for (i, (k, v)) in enumerate(info):
             text = "{}: {}".format(k, v)
             cv2.putText(frame, text, (10, H - ((i * 20) + 20)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
-        # videoyu kaydetmişyiz diye kontrol ediyoruz.
+        #checking if the video has been saved
         if writer is not None:
             writer.write(frame)
 
@@ -196,32 +180,28 @@ def counter(filenameOpen, filenameSave):
         cv2.imshow("Ege Universitesi Bitirme Tezi(Caner YILDIRIM-Emir Kaan YERLI)", frame)
         key = cv2.waitKey(1) & 0xFF
 
-        # döngüden çıkış için q,Q bas
+        #exit the loop
         if key == ord("q") or key == ord("Q"):
             break
-        # fram güncelliyoruz
         totalFrames += 1
         fps.update()
 
-    # durduruyoruz
     fps.stop()
 
-    # videoyu kaydetmeyi sonlandırıyoruz.
+    #video recording is ending
     if writer is not None:
         writer.release()
 
-    # if we are not using a video file, stop the camera video stream
+    #if we are not using a video file, stop the camera video stream
     if not filenameOpen:
         vs.stop()
 
-    # otherwise, release the video file pointer
+    #otherwise, release the video file pointer
     else:
         vs.release()
 
-    # pencereleri kapa
+    #close the windows
     cv2.destroyAllWindows()
-
-    #print(stat)
 
     return info, stat
 # if __name__ == "__main__":

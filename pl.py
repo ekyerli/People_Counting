@@ -1,7 +1,6 @@
+#department reporting at the end of the program
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import math
-
 
 def graph(stat):
     mpl.rcParams.update({'font.size': 8})

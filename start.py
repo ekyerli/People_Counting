@@ -1,4 +1,6 @@
-from tkinter import Tk, filedialog, Button, Label
+#Codding by Caner YILDIRIM & Emir Kaan YERLI *All Rights Reserved.*
+#Run this file to start the program
+from tkinter import Tk, filedialog, Button
 import people_counter as pc
 import datetime
 import pl
@@ -22,7 +24,7 @@ class Movie:
         currentDate = datetime.datetime.today()
         pl.graph(stat)
 
-
+#interface design
 def main():
     root = Tk()
     root.title("Ege Üniversitesi Bitirme Tezi(Caner YILDIRIM-Emir Kaan YERLİ)")
